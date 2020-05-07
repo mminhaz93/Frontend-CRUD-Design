@@ -170,7 +170,3 @@ this.setState(prevState => ({
 ```
 
 Delete is pretty similar to update here except that we are filtering out our deleted item. We only want the items that don't match the id of the one we deleted.
-
-## Lab Practice
-
-I know that we've already made react apps in the past, but never with this many moving parts. Let's get some practice putting these pieces together.

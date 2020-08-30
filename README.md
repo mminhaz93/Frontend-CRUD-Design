@@ -84,32 +84,25 @@ So what's next? We don't have much in our app right now outside of these API cal
 
 ![component-tree](./component-tree.png)
 
-It looks like all four of our components are being called in app. This doesn't mean that they are different views though. We could set up multiple views using react router and have them all called in app. But if we wanted to have the create form at the top of our item list, we could call them like this:
-
-```
-<Route path='/' render={() => (
-  <>
-    <CreateForm />
-    <ItemList />
-  </>
-)} />
-```
-
-We still have some freedom over how we want to display the components even when we import them all into app. This also makes our component tree very simple. Unless the design requires something more complex, keeping it simple is pretty nice and easy to maintain.
+It looks like all four of our components are being called from a container component. The container component typically doesn't actually have any rendering jsx tags. It is just there to have on unified place to store state. We can then pass that state down to our various "screens" components that will render that data. This concept is referred to as raising state. It is very important to make sure our state is raised as high as is needs to be in our app. Other wise we will run into problems with the data in state not refreshing with the rest of our app. Or we will find ourselves backed into a corner, where our data is locked in a sibling or child component and we cant access it. Remember, data in react only flows down.
 
 ## Function/Data Placement 
 
-What about our data? Where should we store state? Also where do our methods go? Keeping everything centralized in `App` is an easy approach to this. Later, when we are much more comfortable with web development, it'll be easy to get the feel for where exactly our values need to live. That also requires a good deal of planning before starting a project.
+ Where do our methods go? This is also a good use for our container component. We will need functions in our react app that gets the data from our API call responses and then sets state.
+ 
+ > Note: Prior to React Hooks, these functions needed to be in the same component that we were storing state. Now we have more freedom and can pass the `setState` functions where ever.
+ 
+ In order to stay organized, it's probably a good idea to keep all of this logic separate from our other components. The "screens" and "components" can focus on just displaying data and the "containers" can focus on state.
 
-When we have our methods in `App`, we simply need to pass them down to our child components to be able to call them when we need them. Here's a diagram of how functions flow typically in a CRUD app:
+When we have our methods in a "Container" component, we simply need to pass them down to our child components to be able to call them when we need them. Here's a diagram of how functions flow typically in a CRUD app:
 
 ![function flow](./React-CRUD-functional-flow.png)
 
-There are a lot of moving parts here. If we don't need to have a separate view for a single item, we can just keep our "edit" and "delete" button on the items in our item list. Them we could remove the `SingleItem` component from this list.
+There are a lot of moving parts here. If we don't need to have a separate view for a single item, we can just keep our "edit" and "delete" button on the items in our item list. Then we could remove the `ItemDetail` component from this list.
 
 ### Read
 
-Looking at this diagram, we see that `read` looks pretty simple. It's a function in api-helper that makes our axios call and another function in App that sets state. We could call our setState function in `componentDidMount` if we wanted our data to load with the page.
+Looking at this diagram, we see that `read` looks pretty simple. It's a function in api-helper that makes our axios call and another function in App that sets state. We could call our setState function in a `useEffect` if we wanted our data to load with the page.
 
 ### Create
 
@@ -117,22 +110,24 @@ Create is the same but it needs to get data from the form first. Also, it isn't 
 
 ### Delete
 
-Delete doesn't need form data, but it does need the id of a single item. We can get this from the `.map` inside of our item list or from the individual item view, if we have it. We can trigger this function with the onClick of a button.
+Delete doesn't need form data, but it does need the `id` of a single item. We can get this from the `.map` inside of our item list screen or from the individual item screen, if we have it. We can trigger this function with the onClick of a button.
 
 ### Update
 
-Update has the most moving parts here, but it's really just a combination of delete and create. We start with an onClick in the item list or single item page view. We need to grab the entire item, including its id and save it in state in App. We'll need our id once the update form is submitted. We need to replace our empty form data in state with the rest of the items data. If we redirect the user to the update form now, they should be looking at a form with the items already in it, ready to be updated. From here, it's the same as create. On submit, the form data is sent to our API call and then set in state of our app.
+Update has the most moving parts here, but it's really just a combination of delete and create. We start with an onClick in the item list or single item page view. We need to pass the `id` along to the edit form component. That will allow us to find the data for the item to pre-populate our edit form. We'll also need the `id` once the update form is submitted. We need to replace our empty form data in state with the item's data. The user should be looking at a form with the items already in it, ready to be updated. From here, it's the same as create. On submit, the form data is sent to our API call and then set in state of our app.
 
-The only function that we are missing from the diagram is for our controlled component: `handleChange`. That should live in App since that is where the state for our form data is. As for `handleSubmit`, our setState functions for create and update are our handleSubmit functions.
+The only function that we are missing from the diagram is for our controlled component: `handleChange`. The `formData` state and `handleChange` can be contained in the form component since it is not used anywhere else in our app.
 
 ## Setting State
 
-We have four different setState functions in our app and they all need to behave differently. Let's look at how they should look and see what they are doing.
+We have four different setState functions in our app and they all need to behave differently. Let's look at how they should look and see what they are doing. This is assuming that we are dealing with a list of `items` that started off as an empty array when we instantiate our `useState`.
+
+>example: `const [items, setItems] = useState([])`
 
 ### Read
 
 ```
-this.setState({ items });
+setItems(items);
 ```
 
 This one is pretty simple since it only needs to set up our initial state.
@@ -140,32 +135,30 @@ This one is pretty simple since it only needs to set up our initial state.
 ### Create
 
 ```
-this.setState(prevState => ({
-  items: [...prevState.items, newItem]
-}))
+setItems(prevState => ([...prevState.items, newItem]))
 ```
 
-State is immutable and we can't change it. However we _can_ replace state with something new. This is where `prevState` comes in handy. In this `setState`, we are replacing `items` with a new array. Inside that array, we spread out all the contents of the items that were in state previously and add our new item.
+State is immutable and we can't change it. However we _can_ replace state with something new. This is where `prevState` comes in handy. In this `setItems`, we are replacing `items` with a new array. Inside that array, we spread out all the contents of the items that were in state previously and add our new item.
 
 ### Update
 
 ```
-this.setState(prevState => ({
-  items: prevState.items.map(item => item.id === updatedId ? newItem : item)
-})
+setItems(prevState => (prevState.items.map(item => {
+  return item.id === updatedId ? newItem : item
+}))
 ```
 
-Update again seems like it has a lot going on but it's only three different pieces that we're all familiar with.
+Update again seems like it has a lot going on but we can break it down to three different pieces that we're all familiar with.
 
-1. First, we setState with prevState.
+1. First, we setItems with prevState.
 2. Next, we map through our previous items. remember, `.map` returns a new array so we are still replacing state and not mutating it.
-3. inside our map, we have a ternary. It is checking for the item id that matches the id of the item we updated. For that one item, we return our updated item from our api call. For all other items, we return the previous item.
+3. Inside our map, we have a ternary. It is checking for the item id that matches the id of the item we updated. For that one item, we return our updated item from our api call. For all other items, we return the previous item.
 
 ### Delete
 
 ```
-this.setState(prevState => ({
-  items: prevState.item.filter(item => item.id !== deletedId)
+this.setState(prevState => {
+  prevState.item.filter(item => item.id !== deletedId)
 })
 ```
 
